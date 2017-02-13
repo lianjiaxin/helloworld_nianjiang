@@ -1,0 +1,347 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#------------------------------------------------------------------------------
+# Purpose:
+'''
+通过调用Openvc(cv2)库对图像进行分析处理
+1.支持分析图像RGB模式平均亮度、HSV模式（平均亮度、平均色度、平均饱和度）、图像为黑白或彩色
+2.支持比较两张图片亮暗情况、图像分割处理和图像保存
+3.分析图像各个区域亮度情况，将图像数组进行切片处理，得到4*4个数组，可分析最大亮度数组、最小亮度数组；
+支持分析上中下左右五个区域的平均亮度，及计算出它们的最亮和最暗分区
+'''
+# Author:      lianjiaxin
+# History:
+#
+# Created:     2017-02-13
+# Copyright:   (c) Hikvision.com 2017
+#------------------------------------------------------------------------------
+
+
+import os
+import sys
+import time
+import math
+import numpy as np
+import cv2
+from matplotlib import pyplot as plt
+from PIL import Image
+import ssim
+import imagehash
+reload(sys)
+sys.setdefaultencoding('utf-8')
+
+
+class Imagetestlib(object):
+    """图像测试库用于分析图片属性和图片对比。目前已实现亮度，色度，饱和度，锐度，灰度，对比度的测评，另外支持
+    图片相似性分析、图片模糊虚焦识别、黑白或彩色图片识别。
+    """
+    ROBOT_LIBRARY_SCOPE = 'TEST SUITE'
+    version = '1.0.0'
+
+    def __init__(self):
+        self.available_extension = ['.jpg', '.jpeg', '.bmp', '.png']
+
+    def _check_file(self, filepath):
+        '''
+        判断文件是否存在，及文件类型
+        '''
+        if not os.path.exists(filepath):
+            raise Exception('OSError: [Errno 2] No such file or directory: %s' % filepath)
+        filename, file_extension = os.path.splitext(filepath)
+        if not file_extension.lower() in self.available_extension:
+            raise Exception(
+                "file extension is not available. The available file extensions include: %s" % str(self.available_extension))
+
+
+    def get_available_file_extension(self):
+        '''
+        返回有效的图像扩展名列表
+        '''
+
+        return self.available_extension
+
+    def assess_image_luminance(self, filepath):
+        '''
+        评估图片亮度
+        参数:
+            filepath:图片路径
+        返回值:
+            返回图像亮度评估数值，数值越大，亮度越高；范围：[0, 100]
+        作者：
+            lianjiaxin
+        '''
+        self._check_file(filepath)
+        hsv = cv2.imread(filepath, cv2.COLOR_RGB2HSV)
+        h, s, v = cv2.split(hsv)
+        luminance = float(v.sum()) / (hsv.shape[0] * hsv.shape[1])
+        return round(luminance, 2)
+
+    def assess_image_saturation(self, filepath):
+        '''
+        评估图片饱和度
+        参数:
+            filepath:图片路径
+        返回值:
+            返回图像饱和度评估数值，数值越大，饱和度越高；范围：[0, 255]
+        作者：
+            lianjiaxin
+        '''
+        self._check_file(filepath)
+        hsv = cv2.imread(filepath, cv2.COLOR_RGB2HSV)
+        h, s, v = cv2.split(hsv)
+        saturation = float(s.sum()) / (hsv.shape[0] * hsv.shape[1])
+        return round(saturation, 2)
+
+    def assess_image_hue(self, filepath):
+        '''
+        评估图片色度
+        参数:
+            filepath:图片路径
+        返回值:
+            返回图像色度评估数值，数值越大，色度越高；范围：[0, 255]
+        作者：
+            lianjiaxin
+        '''
+        self._check_file(filepath)
+        hsv = cv2.imread(filepath, cv2.COLOR_RGB2HSV)
+        h, s, v = cv2.split(hsv)
+        hue = float(h.sum()) / (hsv.shape[0] * hsv.shape[1])
+        return round(hue, 2)
+
+    def assess_image_gray(self, filepath):
+        '''
+        评估图片灰度
+        参数:
+            filepath:图片路径
+        返回值:
+            返回图像灰度评估数值，数值越大，灰度越高；范围：[0, 255]
+        作者：
+            lianjiaxin
+        '''
+        self._check_file(filepath)
+        img = cv2.imread(filepath)
+        gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+        gray_value = float(gray.sum()) / (gray.shape[0] * gray.shape[1])
+        return round(gray_value, 2)
+
+    def assess_image_sharpness(self, filepath, minVal=50, maxVal=150, aperture_size=3):
+        '''
+        评估图片锐度
+        参数:
+            filepath:图片路径
+            image_array:opencv加载图像获得的数组
+            minVal:表示最小阈值
+            maxVal:表示最大阈值（这两个阈值中当中的小阈值用来控制边缘连接大的阈值用来控制强边缘的初始分割，
+                即如果一个像素的梯度大与上限值，则被认为是边缘像素，如果小于下限阈值，则被抛弃。
+                如果该点的梯度在两者之间则当这个点与高于上限值的像素点连接时我们才保留，否则删除。opencv建议高阈值是低阈值的3倍）
+            aperture_size：表示Sobel 算子大小，默认为3即表示一个3*3的矩阵。Sobel 算子与高斯拉普拉斯算子都是常用的边缘算子，推荐值为3
+        返回值：
+            返回锐度边缘检测点像素个数，数值越大，锐度越高
+        作者：
+            lianjiaxin
+        '''
+        self._check_file(filepath)
+        img = cv2.imread(filepath)
+        edges = cv2.Canny(img, int(minVal), int(maxVal), int(aperture_size))
+        edges_count = edges.sum() / 255  # canny算法处理后，黑色为0,边缘点即白色为255
+        return edges_count
+        # edge_percent = float(edges_count) / edges.size * 100
+        # return round(edge_percent, 2)
+
+    def is_image_colorful(self, filepath, rgb_range=15):
+        '''
+        判断图片是否为彩色
+        参数:
+            filepath:图片路径
+            rgb_range:像素值R、G、B的绝对值误差范围，rgb_range越小，黑白图片识别率越低；rgb_range越大，彩色图片识别率越低
+        返回值:
+            若图片为彩色，则返回True；否则返回False
+        作者：
+            lianjiaxin
+        '''
+        # 原理：彩色像素RGB三个通道的强度值差异很大
+        if not str(rgb_range).isdigit():
+            raise Exception("rgb_range value should be an integer")
+        self._check_file(filepath)
+        img = cv2.imread(filepath)
+        r, g, b = cv2.split(img)
+        detal_rg = r - g
+        detal_rb = r - b
+        detal_gb = g - b
+        # 选择绝对值最大的数
+        max_rg = detal_rg.max() if detal_rg.max() > abs(detal_rg.min()) else abs(detal_rg.min())
+        max_rb = detal_rb.max() if detal_rb.max() > abs(detal_rb.min()) else abs(detal_rb.min())
+        max_gb = detal_gb.max() if detal_gb.max() > abs(detal_gb.min()) else abs(detal_gb.min())
+
+        if max_rg > int(rgb_range) and max_rb > int(rgb_range) and max_gb > int(rgb_range):
+            return True
+        else:
+            return False
+
+    def detect_image_blur(self, filepath, threshold=100):
+        '''
+        检查图像是否模糊（虚焦）
+        参数：
+            filepath:图片路径
+            threshold:图像模糊、虚焦判断的阈值，默认值100。分析结果高于threshold则认定图像清晰，否则认定图像模糊、虚焦.
+        返回值：
+            图像清晰返回True，否则返回False
+        作者：
+            lianjiaxin
+        '''
+        self._check_file(filepath)
+        img = cv2.imread(filepath)
+        variance = cv2.Laplacian(img, cv2.CV_64F).var()
+        return True if variance >= float(threshold) else False
+
+# **********************图像哈希算法计算两张图片的相似性****************************
+
+    def calculate_similar_images_by_imghash(self, srcfile, dstfile):
+        '''
+        通过图像哈希算法计算两张图片的相似性【图片相似性计算推荐使用该方法】
+        参数：
+            srcfile:对比图片1路径
+            dstfile:对比图片2路径
+        返回值：
+            两张图片哈希字符串不相同的数据位个数。如果不相同的数据位不超过5，说明图像很相似；
+            如果介于5~10，说明两张图像比较相似；通常认为距离>10 就是两张完全不同的图片
+        作者：
+            lianjiaxin
+        '''
+        self._check_file(srcfile)
+        self._check_file(dstfile)
+        im1 = Image.open(srcfile)
+        im2 = Image.open(dstfile)
+        hash1 = imagehash.phash(im1)
+        hash2 = imagehash.phash(im2)
+        print 'srcfile imghash value: ', hash1
+        print 'dstfile imghash value: ', hash2
+        return hash1 - hash2
+
+# **********************灰度图像直方图算法计算两张图片的相似性****************************
+
+    def _make_regalur_image(self, img, size=(256, 256)):
+        '''
+        把图片都统一到特别的规格(分辨率)
+        参数：
+            img:图像数组
+            size:重新设置图像的规格大小
+        '''
+        return img.resize(size).convert('RGB')
+
+    def _hist_similar(self, lh, rh):
+        '''
+        计算直方图相似性
+        参数：
+            lh, rh为直方图数据
+        '''
+        return sum(1 - (0 if l == r else float(abs(l - r))/max(l, r)) for l, r in zip(lh, rh))/len(lh)
+
+    def _calc_similar(self, li, ri):
+        part_size = (64, 64)
+        img_divide_num = (li.size[0] * li.size[1]) / (part_size[0] * part_size[1])  # 计算图像划分个数
+        return sum(
+            self._hist_similar(
+                l.histogram(), r.histogram()) for l, r in zip(
+                    self._split_image(li, part_size), self._split_image(ri, part_size))) / img_divide_num  # 16.0
+
+    def _split_image(self, img, part_size=(64, 64)):
+        '''
+        分割图片
+        参数：
+            img:图像数组
+            part_size:每个子图片的规格大小
+        返回值：
+            分割后的图片列表
+        '''
+        w, h = img.size
+        pw, ph = part_size
+        tem_img_list = []
+
+        for i in xrange(0, w, pw):
+            for j in xrange(0, h, ph):
+                temp_img = img.crop((i, j, i+pw, j+ph)).copy()
+                tem_img_list.append(temp_img)
+        return tem_img_list
+
+    def calculate_similar_images_by_histogram(self, srcfile, dstfile):
+        '''
+        通过灰度图像直方图算法计算两张图片的相似性
+        参数：
+            srcfile:对比图片1路径
+            dstfile:对比图片2路径
+        返回值：
+            返回两张图片相似度（百分比）
+        作者：
+            lianjiaxin
+        '''
+        self._check_file(srcfile)
+        self._check_file(dstfile)
+        im1 = Image.open(srcfile)
+        im2 = Image.open(dstfile)
+        resize_value = im1.size if (im1.size[0] * im1.size[1]) < (im2.size[0] * im2.size[1]) else im2.size
+        li= self._make_regalur_image(im1, resize_value)
+        ri = self._make_regalur_image(im2, resize_value)
+        return round(self._calc_similar(li, ri) * 100, 2)
+
+# **********************SSIM结构相似性算法计算两张图片的相似性****************************
+
+    def calculate_similar_images_by_ssim(self, srcfile, dstfile):
+        '''
+        通过SSIM结构相似性算法计算两张图片的相似性【图片相似性计算推荐使用该方法】
+        参数：
+            srcfile:对比图片1路径
+            dstfile:对比图片2路径
+        返回值：
+            返回两张图片相似度（百分比）
+        作者：
+            lianjiaxin
+        '''
+        self._check_file(srcfile)
+        self._check_file(dstfile)
+        im1 = Image.open(srcfile)
+        im2 = Image.open(dstfile)
+        return round(ssim.compute_ssim(im1, im2) * 100, 2)
+
+
+# def get_all_slice_from_array(narray height_num=4 width_num=4):
+#     '''
+#     将数组的第一维、第二维进行切片处理，得到(height_num * width_num)个子数组，并以列表形式返回分割后子数组
+#     narray:传入的数组
+#     height_num:第一维分割个数
+#     width_num:第二维分割个数
+#     返回：将分割后的子数组以列表形式返回
+#     '''
+#     try:
+#         height_num = int(height_num)
+#         width_num = int(width_num)
+#     except Exception e:
+#         raise e
+#     height = narray.shape[0]
+#     width = narray.shape[1]
+#     sub_h = height / height_num
+#     sub_w = width / width_num
+#     # print sub_h sub_w
+#     sub_array_list = []
+#     for x in xrange(0 height_num):
+#         for y in xrange(0 width_num):
+#             sub_array_list.append(narray[x * sub_h:(x + 1) * sub_h y * sub_w:(y + 1) * sub_w])
+#     return sub_array_list
+
+
+if __name__ == "__main__":
+    # # print img_mode_dict
+    testfile = "I:\\s101.jpg"  # black.png
+    testfile2 = "I:\\s102.jpg"  # black.png
+    img_analyze = Imagetestlib()
+    # print img_analyze.get_available_file_extension(testfile)
+    print 'v=', img_analyze.assess_image_luminance(testfile)
+    # print 's', img_analyze.assess_image_saturation(testfile)
+    # print 'h', img_analyze.assess_image_hue(testfile)
+    # print img_analyze.is_image_colorful(testfile, 15)
+    # print img_analyze.assess_image_sharpness(testfile)
+    # print img_analyze.detect_image_blur(testfile, 100)
+    # print img_analyze.calculate_similar_images_by_imghash(testfile, testfile2)
+    # print img_analyze.calculate_similar_images_by_histogram(testfile, testfile2)
+    # print img_analyze.calculate_similar_images_by_ssim(testfile, testfile2)
+    print img_analyze.assess_image_gray(testfile)
