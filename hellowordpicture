@@ -134,42 +134,37 @@ class Imagetestlib(object):
         作者：
             lianjiaxin
         '''
+        # 【算法】
+        # I=im2double(imread('E1.jpg'));   %首先把图像数据类型转换为双精度浮点类型
+        # I=rgb2gray(I);%将图像转换成二维
+        # [Nx,Ny] = size(I);
+        # Ng=256;
+        # G=double(I);
+        # %计算对比度
+        # [counts,graylevels]=imhist(I);
+        # PI=counts/(Nx*Ny);
+        # averagevalue=sum(graylevels.*PI);
+        # u4=sum((graylevels-repmat(averagevalue,[256,1])).^4.*PI);
+        # standarddeviation=sum((graylevels-repmat(averagevalue,[256,1])).^2.*PI);
+        # alpha4=u4/standarddeviation^2;
+        # Fcontrast=sqrt(standarddeviation)/alpha4.^(1/4);
+        # disp('对比度：');display(Fcontrast)
+
         self._check_file(filepath)
-
-        # im = cv2.imread(filepath)
-        # bins = np.arange(257)
-        # gray = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
-        # hist, bins = np.histogram(gray, bins)
-        # bins = range(0, 256)
-        # pi = hist / (gray.shape[0] * gray.shape[1])
-        # avg_gray_div = sum(bins * pi)
-        # u4 = sum(np.power(bins - np.matlib.repmat(avg_gray_div, 1, 256), 4) * pi)
-        # std = sum(np.power(bins - np.matlib.repmat(avg_gray_div, 1, 256), 2) * pi)
-        # alpha4 = u4 / np.power(std, 2)
-        # contrast = np.sqrt(std) / np.power(alpha4, 0.25)
-        # print contrast
-        # return round(contrast, 2)
-
-
-
-        img = cv2.imread(filepath)
-        gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-        width = gray.shape[0]
-        height = gray.shape[1]
-        sum_of_squares = 0
-        for j in xrange(height):
-            for i in xrange(width):
-                if i != 0:
-                    sum_of_squares += (gray[i][j] - gray[i - 1][j]) * (gray[i][j] - gray[i - 1][j])
-                if i != width - 1:
-                    sum_of_squares += (gray[i][j] - gray[i + 1][j]) * (gray[i][j] - gray[i + 1][j])
-                if j != 0:
-                    sum_of_squares += (gray[i][j] - gray[i][j - 1]) * (gray[i][j] - gray[i][j - 1])
-                if j != height - 1:
-                    sum_of_squares += (gray[i][j] - gray[i][j + 1]) * (gray[i][j] - gray[i][j + 1])
-        # print sum_of_squares
-        contrast = float(sum_of_squares) / (4 * (width - 2) * (height - 2) + 6 * (width + height - 4) + 8)
-        return round(contrast, 2)
+        im = cv2.imread(filepath)
+        bins = np.arange(257)
+        gray = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
+        hist, bins = np.histogram(gray, bins)
+        bins = np.arange(256)
+        pi = hist * 1.0 / (im.shape[0] * im.shape[1])
+        aver_b = sum(bins * pi)
+        u4_array = np.power(bins * 1.0 - np.matlib.repmat(aver_b, 1, 256), 4) * pi
+        u4 = u4_array.sum()
+        std_array = np.power(bins * 1.0 - np.matlib.repmat(aver_b, 1, 256), 2) * pi
+        std = std_array.sum()
+        alpha4 = u4 / (std * std)
+        contrast = np.sqrt(std) / math.sqrt(math.sqrt(alpha4))
+        return int(contrast)
 
     def assess_image_sharpness(self, filepath, minVal=50, maxVal=150, aperture_size=3):
         '''
@@ -491,8 +486,8 @@ class Imagetestlib(object):
 
 if __name__ == "__main__":
     # # print img_mode_dict
-    testfile = "I:\\off.jpg"  # black.png
-    testfile2 = "I:\\center.jpg"  # black.png
+    testfile = "I:\\test\\2.jpg"  # black.png
+    testfile2 = "I:\\test\\2.jpg"  # black.png
     img_analyze = Imagetestlib()
     # print img_analyze.get_available_file_extension(testfile)
     # print 'v=', img_analyze.assess_image_luminance(testfile)
@@ -505,33 +500,50 @@ if __name__ == "__main__":
     # print img_analyze.calculate_similar_images_by_histogram(testfile, testfile2)
     # print img_analyze.calculate_similar_images_by_ssim(testfile, testfile2)
     # print img_analyze.assess_image_gray(testfile)
-    # print img_analyze.assess_image_contrast(testfile)
+    print img_analyze.assess_image_contrast(testfile)
     # print img_analyze.detect_image_corridor(testfile, testfile2)
     # print img_analyze.detect_image_mirror(testfile, testfile2, 'center', 80)
     # print img_analyze.slice_image(testfile)
 
-    img = cv2.imread(testfile)
-    print img.dtype
-    gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-    a1 = gray[:-1]
-    a2 = gray[1:]
-    b1 = gray.transpose()[:-1]
-    b2 = gray.transpose()[1:]
-    gray_detal_lr = a1 - a2
-    gray_detal_rl = a2 - a1
-    gray_detal_ud = b1 - b2
-    gray_detal_du = b2 - b1
-    gray_detal_ud.transpose()
-    gray_detal_du.transpose()
-    bins = np.arange(256)  # 计算0~255灰度的直方图
-    hist_rl, bins1 = np.histogram(gray_detal_lr, bins)
-    hist_lr, bins2 = np.histogram(gray_detal_lr, bins)
-    hist_ud, bins3 = np.histogram(gray_detal_ud, bins)
-    hist_du, bins4 = np.histogram(gray_detal_du, bins)
-    total_gray_detal_hist = hist_rl + hist_lr + hist_ud + hist_du
+    # img = cv2.imread(testfile)
+    # print img.dtype
+    # gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    # a1 = gray[:-1]
+    # a2 = gray[1:]
+    # b1 = gray[:-1].transpose()
+    # b2 = gray[1:].transpose()
+    # gray_detal_lr = a1 - a2
+    # gray_detal_rl = a2 - a1
+    # gray_detal_ud = b1 - b2
+    # gray_detal_du = b2 - b1
+    # print gray_detal_lr.shape
+    # print gray_detal_rl.shape
+    # gray_detal_ud = gray_detal_ud.transpose()
+    # gray_detal_du = gray_detal_du.transpose()
+    # print gray_detal_ud.shape
+    # print gray_detal_du.shape    
+    # np.power(gray_detal_lr, 2)
+    # sum_of_squares_array = np.power(
+    #     gray_detal_lr, 2) + np.power(gray_detal_rl, 2) + np.power(
+    #     gray_detal_ud, 2) + np.power(gray_detal_du, 2)
+    # sum_of_squares = sum_of_squares_array.sum()
+    # total_num = gray_detal_lr.size + gray_detal_lr.size + gray_detal_ud.size + gray_detal_du.size
+    # print float(sum_of_squares) / total_num
 
-    pi = total_gray_detal_hist * 1.0 / gray.size
-    print pi
+    # bins = np.arange(256)  # 计算0~255灰度的直方图
+    # hist_rl, bins1 = np.histogram(gray_detal_lr, bins)
+    # hist_lr, bins2 = np.histogram(gray_detal_lr, bins)
+    # hist_ud, bins3 = np.histogram(gray_detal_ud, bins)
+    # hist_du, bins4 = np.histogram(gray_detal_du, bins)
+    # total_gray_detal_hist = hist_rl + hist_lr + hist_ud + hist_du
+    # print hist_lr.sum()
+    # print hist_rl.sum()
+    # print hist_ud.sum()
+    # print hist_.sum()
+
+
+    # pi = total_gray_detal_hist * 1.0 / gray.size
+    # print pi
 
 
     # im = Image.open(testfile)
