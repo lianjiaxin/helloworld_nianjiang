@@ -457,6 +457,23 @@ class Imagetestlib(object):
             cv2.imwrite(temp_path, array_list[index - 1])
 
 
+    def estimate_noise(self, filepath):
+        import scipy
+        self._check_file(filepath)
+        img = cv2.imread(filepath)
+        gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+        H, W = gray.shape
+
+        M = [[1, -2, 1],
+           [-2, 4, -2],
+           [1, -2, 1]]
+
+        sigma = np.sum(np.sum(np.absolute(scipy.signal.convolve2d(gray, M))))
+        sigma = sigma * math.sqrt(0.5 * math.pi) / (6 * (W-2) * (H-2))
+
+        return sigma            
+
+
 
 
 # def get_all_slice_from_array(narray height_num=4 width_num=4):
@@ -486,7 +503,7 @@ class Imagetestlib(object):
 
 if __name__ == "__main__":
     # # print img_mode_dict
-    testfile = "I:\\test\\2.jpg"  # black.png
+    testfile = "I:\\test\\444.jpg"  # black.png
     testfile2 = "I:\\test\\2.jpg"  # black.png
     img_analyze = Imagetestlib()
     # print img_analyze.get_available_file_extension(testfile)
@@ -500,12 +517,14 @@ if __name__ == "__main__":
     # print img_analyze.calculate_similar_images_by_histogram(testfile, testfile2)
     # print img_analyze.calculate_similar_images_by_ssim(testfile, testfile2)
     # print img_analyze.assess_image_gray(testfile)
-    print img_analyze.assess_image_contrast(testfile)
+    # print img_analyze.assess_image_contrast(testfile)
     # print img_analyze.detect_image_corridor(testfile, testfile2)
     # print img_analyze.detect_image_mirror(testfile, testfile2, 'center', 80)
     # print img_analyze.slice_image(testfile)
+    print img_analyze.estimate_noise(testfile)
 
     # img = cv2.imread(testfile)
+    # print img.shape
     # print img.dtype
     # gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
     # a1 = gray[:-1]
@@ -554,6 +573,5 @@ if __name__ == "__main__":
     # plt.subplot(2, 2, 2)
     # plt.imshow(im2)
     # plt.show()
-
-
+    # print sys._getframe()
 
