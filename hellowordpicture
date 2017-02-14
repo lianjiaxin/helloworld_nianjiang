@@ -32,8 +32,8 @@ sys.setdefaultencoding('utf-8')
 
 
 class Imagetestlib(object):
-    """图像测试库用于分析图片属性和图片对比。目前已实现亮度，色度，饱和度，锐度，灰度，对比度的测评，另外支持
-    图片相似性分析、图片模糊虚焦识别、黑白或彩色图片识别。
+    """图像测试库主要用于图片属性分析和图片处理对比。目前已实现亮度，色度，饱和度，锐度，灰度，对比度的测评，另外支持
+    镜像分析、走廊模式分析、图片相似性分析、图片模糊虚焦识别、黑白或彩色图片识别。
     """
     ROBOT_LIBRARY_SCOPE = 'TEST SUITE'
     version = '1.0.0'
@@ -51,7 +51,6 @@ class Imagetestlib(object):
         if not file_extension.lower() in self.available_extension:
             raise Exception(
                 "file extension is not available. The available file extensions include: %s" % str(self.available_extension))
-
 
     def get_available_file_extension(self):
         '''
@@ -121,8 +120,56 @@ class Imagetestlib(object):
         self._check_file(filepath)
         img = cv2.imread(filepath)
         gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+        print gray.shape
         gray_value = float(gray.sum()) / (gray.shape[0] * gray.shape[1])
         return round(gray_value, 2)
+
+    def assess_image_contrast(self, filepath):
+        '''
+        评估图片对比度
+        参数:
+            filepath:图片路径
+        返回值:
+            返回图像对比度评估数值，数值越大，对比度越高；
+        作者：
+            lianjiaxin
+        '''
+        self._check_file(filepath)
+
+        # im = cv2.imread(filepath)
+        # bins = np.arange(257)
+        # gray = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
+        # hist, bins = np.histogram(gray, bins)
+        # bins = range(0, 256)
+        # pi = hist / (gray.shape[0] * gray.shape[1])
+        # avg_gray_div = sum(bins * pi)
+        # u4 = sum(np.power(bins - np.matlib.repmat(avg_gray_div, 1, 256), 4) * pi)
+        # std = sum(np.power(bins - np.matlib.repmat(avg_gray_div, 1, 256), 2) * pi)
+        # alpha4 = u4 / np.power(std, 2)
+        # contrast = np.sqrt(std) / np.power(alpha4, 0.25)
+        # print contrast
+        # return round(contrast, 2)
+
+
+
+        img = cv2.imread(filepath)
+        gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+        width = gray.shape[0]
+        height = gray.shape[1]
+        sum_of_squares = 0
+        for j in xrange(height):
+            for i in xrange(width):
+                if i != 0:
+                    sum_of_squares += (gray[i][j] - gray[i - 1][j]) * (gray[i][j] - gray[i - 1][j])
+                if i != width - 1:
+                    sum_of_squares += (gray[i][j] - gray[i + 1][j]) * (gray[i][j] - gray[i + 1][j])
+                if j != 0:
+                    sum_of_squares += (gray[i][j] - gray[i][j - 1]) * (gray[i][j] - gray[i][j - 1])
+                if j != height - 1:
+                    sum_of_squares += (gray[i][j] - gray[i][j + 1]) * (gray[i][j] - gray[i][j + 1])
+        # print sum_of_squares
+        contrast = float(sum_of_squares) / (4 * (width - 2) * (height - 2) + 6 * (width + height - 4) + 8)
+        return round(contrast, 2)
 
     def assess_image_sharpness(self, filepath, minVal=50, maxVal=150, aperture_size=3):
         '''
@@ -194,7 +241,7 @@ class Imagetestlib(object):
         variance = cv2.Laplacian(img, cv2.CV_64F).var()
         return True if variance >= float(threshold) else False
 
-# **********************图像哈希算法计算两张图片的相似性****************************
+    # **********************图像哈希算法计算两张图片的相似性****************************
 
     def calculate_similar_images_by_imghash(self, srcfile, dstfile):
         '''
@@ -218,7 +265,7 @@ class Imagetestlib(object):
         print 'dstfile imghash value: ', hash2
         return hash1 - hash2
 
-# **********************灰度图像直方图算法计算两张图片的相似性****************************
+    # **********************灰度图像直方图算法计算两张图片的相似性****************************
 
     def _make_regalur_image(self, img, size=(256, 256)):
         '''
@@ -284,7 +331,7 @@ class Imagetestlib(object):
         ri = self._make_regalur_image(im2, resize_value)
         return round(self._calc_similar(li, ri) * 100, 2)
 
-# **********************SSIM结构相似性算法计算两张图片的相似性****************************
+    # **********************SSIM结构相似性算法计算两张图片的相似性****************************
 
     def calculate_similar_images_by_ssim(self, srcfile, dstfile):
         '''
@@ -302,6 +349,119 @@ class Imagetestlib(object):
         im1 = Image.open(srcfile)
         im2 = Image.open(dstfile)
         return round(ssim.compute_ssim(im1, im2) * 100, 2)
+
+    def detect_image_corridor(self, srcfile, dstfile, similarity=80):
+        '''
+        检测图像走廊模式开启后的效果，将源图像srcfile进行走廊模式处理，再与目的图像dstfile进行相似性比较；
+        若相似度大于similarity，则判定走廊模式生效；否则走廊模式不生效
+        参数：
+            srcfile:未开启走廊模式的图片路径
+            dstfile:开启走廊模式的图片路径
+            similarity:图片相似度阈值，若源图像处理后，相似度大于similarity，则判定走廊模式生效；否则走廊模式不生效
+        返回值：
+            分析结果，走廊模式生效返回True；否则返回False
+        作者：
+            lianjiaxin
+        '''
+        self._check_file(srcfile)
+        self._check_file(dstfile)
+        im1 = Image.open(srcfile)
+        im2 = Image.open(dstfile)
+        temp = im1.transpose(Image.ROTATE_270).rotate(180)  # .transpose(Image.FLIP_LEFT_RIGHT)
+        similar_rate = ssim.compute_ssim(temp, im2) * 100
+        print 'similarity= ', round(similar_rate, 2)
+        if similar_rate > 80:
+            return True
+        else:
+            return False
+
+    def detect_image_mirror(self, srcfile, dstfile, mirror='left-right', similarity=80):
+        '''
+        检测图像镜像模式开启后的效果，将源图像srcfile进行镜像处理，再与目的图像dstfile进行相似性比较；
+        若相似度大于similarity，则判定走廊模式生效；否则走廊模式不生效
+        参数：
+            srcfile:未开启镜像模式的图片路径
+            dstfile:开启镜像模式的图片路径
+            mirror:镜像模式，支持left-right（左右镜像）,center（中心镜像）,top-bottom（中心镜像）
+            similarity:图片相似度阈值，若源图像处理后，相似度大于similarity，则判定镜像模式生效；否则镜像模式不生效
+        返回值：
+            分析结果，镜像模式生效返回True；否则返回False
+        作者：
+            lianjiaxin
+        '''
+        self._check_file(srcfile)
+        self._check_file(dstfile)
+        im1 = Image.open(srcfile)
+        im2 = Image.open(dstfile)
+
+        if mirror.lower() == 'left-right':
+            mirror_value = Image.FLIP_LEFT_RIGHT
+        elif mirror.lower() == 'center':
+            mirror_value = Image.ROTATE_180
+        elif mirror.lower() == 'top-bottom':
+            mirror_value = Image.FLIP_TOP_BOTTOM
+        else:
+            raise Exception("mirror ValueError, not support value:%s" % mirror)
+        temp = im1.transpose(mirror_value)
+        similar_rate = ssim.compute_ssim(temp, im2) * 100
+        print 'similarity= ', round(similar_rate, 2)
+        if similar_rate > 80:
+            return True
+        else:
+            return False
+
+
+    def _get_all_slice_from_array(self, narray, height_num=4, width_num=4):
+        '''
+        将数组的第一维、第二维进行切片处理，得到(height_num * width_num)个子数组，并以列表形式返回分割后子数组
+        参数：
+            narray:传入的数组
+            height_num:第一维分割个数
+            width_num:第二维分割个数
+        返回：将分割后的子数组以列表形式返回
+        '''
+        try:
+            height_num = int(height_num)
+            width_num = int(width_num)
+        except Exception, e:
+            raise e
+        height = narray.shape[0]
+        width = narray.shape[1]
+        sub_h = height / height_num
+        sub_w = width / width_num
+        # print sub_h, sub_w
+        sub_array_list = []
+        for x in xrange(0, height_num):
+            for y in xrange(0, width_num):
+                sub_array_list.append(narray[x * sub_h:(x + 1) * sub_h, y * sub_w:(y + 1) * sub_w])
+        return sub_array_list
+
+    def slice_image(self, filepath, dst_dir=None, horizontal=4, vertical=4):
+        '''
+        将图片分割成horizontal*vertical张图片，并保存到dst_dir目录
+        filepath:
+        dst_dir:保存图片目录
+        horizontal:水平方向上切割个数
+        vertical:垂直方向上切割个数
+        备注：源图像命名如"Test.jpg", 那么分割后的图像命名为"Test_1.jpg", "Test_2.jpg", "Test_3.jpg", ...
+        '''
+        self._check_file(filepath)
+        img = cv2.imread(filepath)
+        filepath_dir = os.path.dirname(filepath)
+        basename = os.path.basename(filepath)
+        basename_only, extensions = os.path.splitext(basename)
+        if dst_dir is None or dst_dir == 'None':
+            dst_dir = filepath_dir
+        else:
+            if not os.path.exists(dst_dir):
+                os.makedirs(dst_dir)
+        array_list = self._get_all_slice_from_array(img, int(horizontal), int(vertical))
+        for index in xrange(1, len(array_list)+1):
+            filename = basename_only + '_%d' % index + extensions
+            temp_path = os.path.join(dst_dir, filename)
+            cv2.imwrite(temp_path, array_list[index - 1])
+
+
 
 
 # def get_all_slice_from_array(narray height_num=4 width_num=4):
@@ -331,11 +491,11 @@ class Imagetestlib(object):
 
 if __name__ == "__main__":
     # # print img_mode_dict
-    testfile = "I:\\s101.jpg"  # black.png
-    testfile2 = "I:\\s102.jpg"  # black.png
+    testfile = "I:\\off.jpg"  # black.png
+    testfile2 = "I:\\center.jpg"  # black.png
     img_analyze = Imagetestlib()
     # print img_analyze.get_available_file_extension(testfile)
-    print 'v=', img_analyze.assess_image_luminance(testfile)
+    # print 'v=', img_analyze.assess_image_luminance(testfile)
     # print 's', img_analyze.assess_image_saturation(testfile)
     # print 'h', img_analyze.assess_image_hue(testfile)
     # print img_analyze.is_image_colorful(testfile, 15)
@@ -344,4 +504,44 @@ if __name__ == "__main__":
     # print img_analyze.calculate_similar_images_by_imghash(testfile, testfile2)
     # print img_analyze.calculate_similar_images_by_histogram(testfile, testfile2)
     # print img_analyze.calculate_similar_images_by_ssim(testfile, testfile2)
-    print img_analyze.assess_image_gray(testfile)
+    # print img_analyze.assess_image_gray(testfile)
+    # print img_analyze.assess_image_contrast(testfile)
+    # print img_analyze.detect_image_corridor(testfile, testfile2)
+    # print img_analyze.detect_image_mirror(testfile, testfile2, 'center', 80)
+    # print img_analyze.slice_image(testfile)
+
+    img = cv2.imread(testfile)
+    print img.dtype
+    gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    a1 = gray[:-1]
+    a2 = gray[1:]
+    b1 = gray.transpose()[:-1]
+    b2 = gray.transpose()[1:]
+    gray_detal_lr = a1 - a2
+    gray_detal_rl = a2 - a1
+    gray_detal_ud = b1 - b2
+    gray_detal_du = b2 - b1
+    gray_detal_ud.transpose()
+    gray_detal_du.transpose()
+    bins = np.arange(256)  # 计算0~255灰度的直方图
+    hist_rl, bins1 = np.histogram(gray_detal_lr, bins)
+    hist_lr, bins2 = np.histogram(gray_detal_lr, bins)
+    hist_ud, bins3 = np.histogram(gray_detal_ud, bins)
+    hist_du, bins4 = np.histogram(gray_detal_du, bins)
+    total_gray_detal_hist = hist_rl + hist_lr + hist_ud + hist_du
+
+    pi = total_gray_detal_hist * 1.0 / gray.size
+    print pi
+
+
+    # im = Image.open(testfile)
+    # im2 = Image.open(testfile2)
+    # temp = im.transpose(Image.ROTATE_180)  # Image.FLIP_LEFT_RIGHT
+    # plt.subplot(2, 2, 1)
+    # plt.imshow(temp)
+    # plt.subplot(2, 2, 2)
+    # plt.imshow(im2)
+    # plt.show()
+
+
+
