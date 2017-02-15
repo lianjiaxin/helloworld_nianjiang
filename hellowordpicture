@@ -37,7 +37,7 @@ class Imagetestlib(object):
     version = '1.0.0'
 
     def __init__(self):
-        self.available_extension = ['.jpg', '.jpeg', '.bmp', '.png']
+        self.file_extension = ['.jpg', '.jpeg', '.bmp', '.png']
 
     def _check_file(self, filepath):
         '''
@@ -46,16 +46,16 @@ class Imagetestlib(object):
         if not os.path.exists(filepath):
             raise Exception('OSError: [Errno 2] No such file or directory: %s' % filepath)
         filename, file_extension = os.path.splitext(filepath)
-        if not file_extension.lower() in self.available_extension:
+        if not file_extension.lower() in self.file_extension:
             raise Exception(
-                "file extension is not available. The available file extensions include: %s" % str(self.available_extension))
+                "file extension is not available. The available file extensions include: %s" % str(self.file_extension))
 
     def get_available_file_extension(self):
         '''
         返回有效的图像扩展名列表
         '''
 
-        return self.available_extension
+        return self.file_extension
 
     def assess_image_luminance(self, filepath):
         '''
