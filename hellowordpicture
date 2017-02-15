@@ -12,8 +12,6 @@
 # Created:     2017-02-13
 # Copyright:   (c) Hikvision.com 2017
 #------------------------------------------------------------------------------
-
-
 import os
 import sys
 import time
@@ -174,7 +172,7 @@ class Imagetestlib(object):
             maxVal:表示最大阈值（这两个阈值中当中的小阈值用来控制边缘连接大的阈值用来控制强边缘的初始分割，
                 即如果一个像素的梯度大与上限值，则被认为是边缘像素，如果小于下限阈值，则被抛弃。
                 如果该点的梯度在两者之间则当这个点与高于上限值的像素点连接时我们才保留，否则删除。opencv建议高阈值是低阈值的3倍）
-            aperture_size：表示Sobel 算子大小，默认为3即表示一个3*3的矩阵。Sobel 算子与高斯拉普拉斯算子都是常用的边缘算子，推荐值为3
+            aperture_size：表示Sobel算子大小，默认为3即表示一个3*3的矩阵。Sobel 算子与高斯拉普拉斯算子都是常用的边缘算子，推荐值为3
         返回值：
             返回锐度边缘检测点像素个数，数值越大，锐度越高
         作者：
@@ -193,7 +191,7 @@ class Imagetestlib(object):
         判断图片是否为彩色
         参数:
             filepath:图片路径
-            rgb_range:像素值R、G、B的绝对值误差范围，rgb_range越小，黑白图片识别率越低；rgb_range越大，彩色图片识别率越低
+            rgb_range:像素R,G,B通道之间的绝对值误差范围，rgb_range越小，黑白图片识别率越低；rgb_range越大，彩色图片识别率越低
         返回值:
             若图片为彩色，则返回True；否则返回False
         作者：
@@ -204,6 +202,13 @@ class Imagetestlib(object):
             raise Exception("rgb_range value should be an integer")
         self._check_file(filepath)
         img = cv2.imread(filepath)
+        if img.std() == 0:  # 全白或者全黑图像
+            avg_l = img.sum() / img.size
+            print avg_l
+            if avg_l < 128:  # 黑色
+                return False
+            else:
+                return True
         r, g, b = cv2.split(img)
         detal_rg = r - g
         detal_rb = r - b
@@ -556,14 +561,14 @@ class Imagetestlib(object):
 
 if __name__ == "__main__":
     # # print img_mode_dict
-    testfile = "I:\\cast7.jpg"  # black.png
+    testfile = "I:\\b22.jpg"  # black.png
     testfile2 = "I:\\c0.jpg"  # black.png
     img_analyze = Imagetestlib()
     # print img_analyze.get_available_file_extension(testfile)
     # print 'v=', img_analyze.assess_image_luminance(testfile)
     # print 's', img_analyze.assess_image_saturation(testfile)
     # print 'h', img_analyze.assess_image_hue(testfile)
-    # print img_analyze.is_image_colorful(testfile, 15)
+    print img_analyze.is_image_colorful(testfile, 15)
     # print img_analyze.assess_image_sharpness(testfile)
     # print img_analyze.detect_image_blur(testfile, 100)
     # print img_analyze.calculate_similar_images_by_imghash(testfile, testfile2)
@@ -575,7 +580,7 @@ if __name__ == "__main__":
     # print img_analyze.detect_image_mirror(testfile, testfile2, 'center', 80)
     # print img_analyze.slice_image(testfile)
     # print img_analyze.estimate_noise(testfile)
-    print img_analyze.detect_image_color_cast(testfile)
+    # print img_analyze.detect_image_color_cast(testfile)
     # print img_analyze.detect_image_luminance(testfile)
     # img = cv2.imread(testfile)
     # img_var = img.var()
