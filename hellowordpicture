@@ -226,6 +226,7 @@ class Imagetestlib(object):
     def detect_image_blur(self, filepath, threshold=100):
         '''
         检查图像是否模糊（虚焦）
+        PS：【景深过深的场景判定为会判断为模糊吗？待确认；若判断有误，那么将图像拆分成M*N块进行分析，是否可以解决？待验证】
         参数：
             filepath:图片路径
             threshold:图像模糊、虚焦判断的阈值，默认值100。分析结果高于threshold则认定图像清晰，否则认定图像模糊、虚焦.
@@ -561,7 +562,7 @@ class Imagetestlib(object):
 
 if __name__ == "__main__":
     # # print img_mode_dict
-    testfile = "I:\\b22.jpg"  # black.png
+    testfile = "I:\\c100.jpg"  # black.png
     testfile2 = "I:\\c0.jpg"  # black.png
     img_analyze = Imagetestlib()
     # print img_analyze.get_available_file_extension(testfile)
