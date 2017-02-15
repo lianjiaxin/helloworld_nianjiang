@@ -3,11 +3,8 @@
 #------------------------------------------------------------------------------
 # Purpose:
 '''
-通过调用Openvc(cv2)库对图像进行分析处理
-1.支持分析图像RGB模式平均亮度、HSV模式（平均亮度、平均色度、平均饱和度）、图像为黑白或彩色
-2.支持比较两张图片亮暗情况、图像分割处理和图像保存
-3.分析图像各个区域亮度情况，将图像数组进行切片处理，得到4*4个数组，可分析最大亮度数组、最小亮度数组；
-支持分析上中下左右五个区域的平均亮度，及计算出它们的最亮和最暗分区
+图像测试库主要用于图片属性分析和图片处理对比。目前已实现亮度，色度，饱和度，锐度，灰度，对比度的测评，另外支持
+    色偏检测、图像过曝/过暗检测、噪点检测、镜像分析、走廊模式分析、图片相似性分析、图片模糊虚焦识别、黑白或彩色图片识别。
 '''
 # Author:      lianjiaxin
 # History:
@@ -32,9 +29,10 @@ sys.setdefaultencoding('utf-8')
 
 
 class Imagetestlib(object):
-    """图像测试库主要用于图片属性分析和图片处理对比。目前已实现亮度，色度，饱和度，锐度，灰度，对比度的测评，另外支持
-    镜像分析、走廊模式分析、图片相似性分析、图片模糊虚焦识别、黑白或彩色图片识别。
-    """
+    '''
+    图像测试库主要用于图片属性分析和图片处理对比。目前已实现亮度，色度，饱和度，锐度，灰度，对比度的测评，另外支持
+        色偏检测、图像过曝/过暗检测、噪点检测、镜像分析、走廊模式分析、图片相似性分析、图片模糊虚焦识别、黑白或彩色图片识别。
+    '''
     ROBOT_LIBRARY_SCOPE = 'TEST SUITE'
     version = '1.0.0'
 
@@ -438,7 +436,7 @@ class Imagetestlib(object):
         dst_dir:保存图片目录
         horizontal:水平方向上切割个数
         vertical:垂直方向上切割个数
-        备注：源图像命名如"Test.jpg", 那么分割后的图像命名为"Test_1.jpg", "Test_2.jpg", "Test_3.jpg", ...
+        备注：源图像命名，如"Test.jpg", 那么分割后的图像命名为"Test_1.jpg", "Test_2.jpg", "Test_3.jpg", ...
         '''
         self._check_file(filepath)
         img = cv2.imread(filepath)
@@ -458,6 +456,15 @@ class Imagetestlib(object):
 
 
     def estimate_noise(self, filepath):
+        '''
+        检测图像噪点。
+        参数：
+            filepath:图片路径
+        返回值：
+            返回噪点指数，一般认为噪点指数大于1.5时，图像噪点过大
+        作者：
+            lianjiaxin
+        '''
         import scipy
         self._check_file(filepath)
         img = cv2.imread(filepath)
@@ -465,46 +472,92 @@ class Imagetestlib(object):
         H, W = gray.shape
 
         M = [[1, -2, 1],
-           [-2, 4, -2],
-           [1, -2, 1]]
+            [-2, 4, -2],
+            [1, -2, 1]]
 
         sigma = np.sum(np.sum(np.absolute(scipy.signal.convolve2d(gray, M))))
         sigma = sigma * math.sqrt(0.5 * math.pi) / (6 * (W-2) * (H-2))
 
-        return sigma            
+        return sigma
+
+    def detect_image_color_cast(self, filepath):
+        '''
+        检测图像色偏。（仅适用于彩色图片）
+        参数：
+            filepath:图片路径
+        返回值：
+            返回色偏指数。综合来说，cast值不大于1.5，可认为图像是正常的，否则，可认为存在色偏（当然这个值取多少可能还是需要和实际情况结合的。）
+        作者：
+            lianjiaxin
+        '''
+        # RGB颜色空间是最简单的一种颜色空间，但是RGB颜色空间最大的局限性在于当用欧氏距离来刻画两种颜色之间的差异时，
+        # 所计算出的两种颜色之间的距无法正确表征人们实际所感知到的这两种颜色之间的真实差异。采用CIE Lab颜色空间，
+        # 此空间所计算出来的颜色之间的距离与实际感知上的差别基本一致。其直方图可以客观的反映图像色偏程度，
+        # 在CIE Lab下进行偏色图像的自动检测更为合理。
+        # 将RGB图像转变到CIE L*a*b*空间，其中L*表示图像亮度，a*表示图像红/绿分量，b*表示图像黄/蓝分量。
+        # 通常存在色偏的图像，在a*和b*分量上的均值会偏离原点很远，方差也会偏小；
+        # 通过计算图像在a*和b*分量上的均值和方差，就可评估图像是否存在色偏。
+        self._check_file(filepath)
+        img = cv2.imread(filepath)
+        lab_img = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
+        # HistA = np.repeat([0], 256)
+        # HistB = np.repeat([0], 256)
+        MN = lab_img.shape[0] * lab_img.shape[1]
+        axis_l, axis_a, axis_b = cv2.split(lab_img)  # 取通道0~2中的1和2通道
+        MN = axis_a.size
+        Da = float(axis_a.sum()) / MN - 128  # 必须归一化到[-128，,127]范围内
+        Db = float(axis_b.sum()) / MN - 128
+        HistA, binsA = np.histogram(axis_a, range(256))
+        HistB, binsB = np.histogram(axis_b, range(256))
+        # 平均色度
+        avg_huv = math.sqrt(Da * Da + Db * Db)
+        Ma = 0.0
+        Mb = 0.0
+        for i in xrange(0, len(HistA)):
+            Ma += abs(i - 128 -Da) * HistA[i]  # //计算范围-128～127
+            Mb += abs(i - 128 -Db) * HistB[i]
+        Ma /= MN
+        Mb /= MN
+        center_distance  = math.sqrt(Ma * Ma + Mb * Mb)
+        kernel = avg_huv / center_distance
+        return kernel
 
 
+    def detect_image_luminance(self, filepath):
+        '''
+        检测图像亮度情况。
+        filepath:图片路径
+        返回值：
+            返回图像亮度检测结果：（以下为经验值）
+                1)结果在[-1, 1]之间，亮度正常
+                2)结果在[1, 2]之间，亮度较高
+                3)结果大于2，亮度过曝
+                4)结果在[-1, -1.5]，亮度较低
+                5)结果小于-1.5，亮度太暗
+        作者：
+            lianjiaxin
+        '''
+        self._check_file(filepath)
+        img = cv2.imread(filepath)
+        gray_array = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+        MN = gray_array.shape[0] * gray_array.shape[1]
+        Hist, bins = np.histogram(gray_array, range(256))
+        # print Hist
+        Dlum = float(gray_array.sum()) / MN -128
+        dl = Dlum
+        Ma = 0.0
+        for i in xrange(len(Hist)):
+            Ma += abs(i - 128 - Dlum) * Hist[i]
+        Ma /= MN
+        cast = dl / Ma
+        return cast
 
-
-# def get_all_slice_from_array(narray height_num=4 width_num=4):
-#     '''
-#     将数组的第一维、第二维进行切片处理，得到(height_num * width_num)个子数组，并以列表形式返回分割后子数组
-#     narray:传入的数组
-#     height_num:第一维分割个数
-#     width_num:第二维分割个数
-#     返回：将分割后的子数组以列表形式返回
-#     '''
-#     try:
-#         height_num = int(height_num)
-#         width_num = int(width_num)
-#     except Exception e:
-#         raise e
-#     height = narray.shape[0]
-#     width = narray.shape[1]
-#     sub_h = height / height_num
-#     sub_w = width / width_num
-#     # print sub_h sub_w
-#     sub_array_list = []
-#     for x in xrange(0 height_num):
-#         for y in xrange(0 width_num):
-#             sub_array_list.append(narray[x * sub_h:(x + 1) * sub_h y * sub_w:(y + 1) * sub_w])
-#     return sub_array_list
 
 
 if __name__ == "__main__":
     # # print img_mode_dict
-    testfile = "I:\\test\\444.jpg"  # black.png
-    testfile2 = "I:\\test\\2.jpg"  # black.png
+    testfile = "I:\\cast7.jpg"  # black.png
+    testfile2 = "I:\\c0.jpg"  # black.png
     img_analyze = Imagetestlib()
     # print img_analyze.get_available_file_extension(testfile)
     # print 'v=', img_analyze.assess_image_luminance(testfile)
@@ -521,48 +574,14 @@ if __name__ == "__main__":
     # print img_analyze.detect_image_corridor(testfile, testfile2)
     # print img_analyze.detect_image_mirror(testfile, testfile2, 'center', 80)
     # print img_analyze.slice_image(testfile)
-    print img_analyze.estimate_noise(testfile)
-
+    # print img_analyze.estimate_noise(testfile)
+    print img_analyze.detect_image_color_cast(testfile)
+    # print img_analyze.detect_image_luminance(testfile)
     # img = cv2.imread(testfile)
-    # print img.shape
-    # print img.dtype
-    # gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-    # a1 = gray[:-1]
-    # a2 = gray[1:]
-    # b1 = gray[:-1].transpose()
-    # b2 = gray[1:].transpose()
-    # gray_detal_lr = a1 - a2
-    # gray_detal_rl = a2 - a1
-    # gray_detal_ud = b1 - b2
-    # gray_detal_du = b2 - b1
-    # print gray_detal_lr.shape
-    # print gray_detal_rl.shape
-    # gray_detal_ud = gray_detal_ud.transpose()
-    # gray_detal_du = gray_detal_du.transpose()
-    # print gray_detal_ud.shape
-    # print gray_detal_du.shape    
-    # np.power(gray_detal_lr, 2)
-    # sum_of_squares_array = np.power(
-    #     gray_detal_lr, 2) + np.power(gray_detal_rl, 2) + np.power(
-    #     gray_detal_ud, 2) + np.power(gray_detal_du, 2)
-    # sum_of_squares = sum_of_squares_array.sum()
-    # total_num = gray_detal_lr.size + gray_detal_lr.size + gray_detal_ud.size + gray_detal_du.size
-    # print float(sum_of_squares) / total_num
+    # img_var = img.var()
+    # print img_var
+    # print img.std()
 
-    # bins = np.arange(256)  # 计算0~255灰度的直方图
-    # hist_rl, bins1 = np.histogram(gray_detal_lr, bins)
-    # hist_lr, bins2 = np.histogram(gray_detal_lr, bins)
-    # hist_ud, bins3 = np.histogram(gray_detal_ud, bins)
-    # hist_du, bins4 = np.histogram(gray_detal_du, bins)
-    # total_gray_detal_hist = hist_rl + hist_lr + hist_ud + hist_du
-    # print hist_lr.sum()
-    # print hist_rl.sum()
-    # print hist_ud.sum()
-    # print hist_.sum()
-
-
-    # pi = total_gray_detal_hist * 1.0 / gray.size
-    # print pi
 
 
     # im = Image.open(testfile)
