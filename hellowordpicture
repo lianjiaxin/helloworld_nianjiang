@@ -66,7 +66,7 @@ class Imagetestlib(object):
             lianjiaxin
         '''
         self._check_file(filepath)
-        hsv = cv2.imread(filepath, cv2.COLOR_RGB2HSV)
+        hsv = cv2.imread(filepath, cv2.COLOR_BGR2HSV)
         h, s, v = cv2.split(hsv)
         luminance = float(v.sum()) / (hsv.shape[0] * hsv.shape[1])
         return round(luminance, 2)
@@ -82,26 +82,26 @@ class Imagetestlib(object):
             lianjiaxin
         '''
         self._check_file(filepath)
-        hsv = cv2.imread(filepath, cv2.COLOR_RGB2HSV)
+        hsv = cv2.imread(filepath, cv2.COLOR_BGR2HSV)
         h, s, v = cv2.split(hsv)
         saturation = float(s.sum()) / (hsv.shape[0] * hsv.shape[1])
         return round(saturation, 2)
 
-    def assess_image_hue(self, filepath):
-        '''
-        评估图片色度
-        参数:
-            filepath:图片路径
-        返回值:
-            返回图像色度评估数值，数值越大，色度越高；范围：[0, 255]
-        作者：
-            lianjiaxin
-        '''
-        self._check_file(filepath)
-        hsv = cv2.imread(filepath, cv2.COLOR_RGB2HSV)
-        h, s, v = cv2.split(hsv)
-        hue = float(h.sum()) / (hsv.shape[0] * hsv.shape[1])
-        return round(hue, 2)
+    # def assess_image_hue(self, filepath):
+    #     '''
+    #     评估图片色度
+    #     参数:
+    #         filepath:图片路径
+    #     返回值:
+    #         返回图像色度评估数值，数值越大，色度越高；范围：[0, 255]
+    #     作者：
+    #         lianjiaxin
+    #     '''
+    #     self._check_file(filepath)
+    #     hsv = cv2.imread(filepath, cv2.COLOR_BGR2HSV)
+    #     h, s, v = cv2.split(hsv)
+    #     hue = float(h.sum()) / (hsv.shape[0] * hsv.shape[1])
+    #     return round(hue, 2)
 
     def assess_image_gray(self, filepath):
         '''
@@ -115,7 +115,7 @@ class Imagetestlib(object):
         '''
         self._check_file(filepath)
         img = cv2.imread(filepath)
-        gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         print gray.shape
         gray_value = float(gray.sum()) / (gray.shape[0] * gray.shape[1])
         return round(gray_value, 2)
@@ -149,7 +149,7 @@ class Imagetestlib(object):
         self._check_file(filepath)
         im = cv2.imread(filepath)
         bins = np.arange(257)
-        gray = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
+        gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
         hist, bins = np.histogram(gray, bins)
         bins = np.arange(256)
         pi = hist * 1.0 / (im.shape[0] * im.shape[1])
@@ -216,7 +216,7 @@ class Imagetestlib(object):
                 return False
             else:
                 return True
-        r, g, b = cv2.split(img)
+        b, g, r = cv2.split(img)
         detal_rg = r - g
         detal_rb = r - b
         detal_gb = g - b
@@ -485,21 +485,20 @@ class Imagetestlib(object):
         参数：
             filepath:图片路径
         返回值：
-            返回噪点指数，一般认为噪点指数大于1.5时，图像噪点过大
+            返回噪点指数，指数越大，图像噪点越大
         作者：
             lianjiaxin
         '''
         import scipy
         self._check_file(filepath)
         img = cv2.imread(filepath)
-        gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         H, W = gray.shape
 
-        M = [[1, -2, 1],
+        M = [[1, -2, 1],  # 0均值高斯滤波
             [-2, 4, -2],
             [1, -2, 1]]
-
-        sigma = np.sum(np.sum(np.absolute(scipy.signal.convolve2d(gray, M))))
+        sigma = np.sum(np.absolute(scipy.signal.convolve2d(gray, M)))
         sigma = sigma * math.sqrt(0.5 * math.pi) / (6 * (W-2) * (H-2))
 
         return sigma
@@ -510,7 +509,10 @@ class Imagetestlib(object):
         参数：
             filepath:图片路径
         返回值：
-            返回色偏指数。综合来说，cast值不大于1.5，可认为图像是正常的，否则，可认为存在色偏（当然这个值取多少可能还是需要和实际情况结合的。）
+            返回色偏指数字典：
+            kernel：色偏指数，综合来说，kernel值小于1，可认为图像是正常的，否则，可认为存在色偏（参考值可能需要和实际情况结合进行调整）
+            Da:红/绿色偏估计值，da大于0，表示偏红；da小于0表示偏绿
+            Db:黄/蓝色偏估计值，db大于0，表示偏黄；db小于0表示偏蓝
         作者：
             lianjiaxin
         '''
@@ -529,8 +531,11 @@ class Imagetestlib(object):
         MN = lab_img.shape[0] * lab_img.shape[1]
         axis_l, axis_a, axis_b = cv2.split(lab_img)  # 取通道0~2中的1和2通道
         MN = axis_a.size
+        # * da          红/绿色偏估计值，da大于0，表示偏红；da小于0表示偏绿
+        # * db          黄/蓝色偏估计值，db大于0，表示偏黄；db小于0表示偏蓝
         Da = float(axis_a.sum()) / MN - 128  # 必须归一化到[-128，,127]范围内
         Db = float(axis_b.sum()) / MN - 128
+
         HistA, binsA = np.histogram(axis_a, range(256))
         HistB, binsB = np.histogram(axis_b, range(256))
         # 平均色度
@@ -544,7 +549,12 @@ class Imagetestlib(object):
         Mb /= MN
         center_distance  = math.sqrt(Ma * Ma + Mb * Mb)
         kernel = avg_huv / center_distance
-        return kernel
+        color_cast_dict = {}
+        color_cast_dict['kernel'] = kernel
+        color_cast_dict['Da'] = Da
+        color_cast_dict['Db'] = Db
+
+        return color_cast_dict
 
 
     def detect_image_luminance(self, filepath):
@@ -563,7 +573,7 @@ class Imagetestlib(object):
         '''
         self._check_file(filepath)
         img = cv2.imread(filepath)
-        gray_array = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+        gray_array = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         MN = gray_array.shape[0] * gray_array.shape[1]
         Hist, bins = np.histogram(gray_array, range(256))
         # print Hist
@@ -580,41 +590,77 @@ class Imagetestlib(object):
 
 if __name__ == "__main__":
     # # print img_mode_dict
-    testfile = "I:\\clear\\road2.png"  # black.png
-    testfile2 = "I:\\c0.jpg"  # black.png
+    testfile = "I:\\test_error\\9.jpg"  # black.png
+    testfile2 = "I:\\clear\\road0.png"  # black.png
     img_analyze = Imagetestlib()
     # print img_analyze.get_available_file_extension(testfile)
     # print 'v=', img_analyze.assess_image_luminance(testfile)
     # print 's', img_analyze.assess_image_saturation(testfile)
     # print 'h', img_analyze.assess_image_hue(testfile)
     # print img_analyze.is_image_colorful(testfile, 15)
-    print img_analyze.assess_image_sharpness(testfile)
+    # print img_analyze.assess_image_sharpness(testfile)
     # print img_analyze.detect_image_blur(testfile, 100)
-    # print img_analyze.calculate_similar_images_by_imghash(testfile, testfile2)
-    # print img_analyze.calculate_similar_images_by_histogram(testfile, testfile2)
-    # print img_analyze.calculate_similar_images_by_ssim(testfile, testfile2)
+    # Imghash_DiffNum = img_analyze.calculate_similar_images_by_imghash(testfile, testfile2)
+    # Hist_similar = img_analyze.calculate_similar_images_by_histogram(testfile, testfile2)
+    # Ssim_similar = img_analyze.calculate_similar_images_by_ssim(testfile, testfile2)
     # print img_analyze.assess_image_gray(testfile)
     # print img_analyze.assess_image_contrast(testfile)
     # print img_analyze.detect_image_corridor(testfile, testfile2)
     # print img_analyze.detect_image_mirror(testfile, testfile2, 'center', 80)
     # print img_analyze.slice_image(testfile)
-    # print img_analyze.estimate_noise(testfile)
-    # print img_analyze.detect_image_color_cast(testfile)
-    # print img_analyze.detect_image_luminance(testfile)
+    noise_estimation = img_analyze.estimate_noise(testfile)
+    color_cast = img_analyze.detect_image_color_cast(testfile)
+    lum_estimation = img_analyze.detect_image_luminance(testfile)
+    print noise_estimation, color_cast, lum_estimation
+    kernel = color_cast['kernel']
+    # Da:红/绿色偏估计值，da大于0，表示偏红；da小于0表示偏绿
+    # Db:黄/蓝色偏估计值，db大于0，表示偏黄；db小于0表示偏蓝
+
+    if abs(color_cast['Da']) > abs(color_cast['Db']):
+        if color_cast['Da'] > 0:
+            cast_rbg = 'more red'
+        else:
+            cast_rbg = 'more green'
+    else:
+        if color_cast['Db'] > 0:
+            cast_rbg = 'more yellow'
+        else:
+            cast_rbg = 'more blue'
+    if kernel < 1:
+        cast_rbg = ''
+    img = cv2.imread(testfile)
+    # text = 'color_cast = %d %s\r\nlum_estimation = %d\noise_estimation = %d\r\n' % (kernel, cast_rbg, lum_estimation, noise_estimation)
+    text1 = 'cast = %.4f %s' %(kernel, cast_rbg)
+    text2 = 'lum = %.4f' % lum_estimation
+    text3 = 'noise = %.4f' %noise_estimation
+    cv2.putText(img, text1, (10, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.6,(0, 0, 255), 1)
+    cv2.putText(img, text2, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6,(0, 0, 255), 1)
+    cv2.putText(img, text3, (10, 45), cv2.FONT_HERSHEY_SIMPLEX, 0.6,(0, 0, 255), 1)
+    cv2.imshow('test', img)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+    cv2.imwrite('test.png',img)
     # img = cv2.imread(testfile)
     # img_var = img.var()
     # print img_var
     # print img.std()
 
+    # text = 'Imghash_DiffNum = %d\nHist_similar = %d\nSsim_similar = %d\n' % (Imghash_DiffNum, Hist_similar, Ssim_similar)
+
 
 
     # im = Image.open(testfile)
     # im2 = Image.open(testfile2)
-    # temp = im.transpose(Image.ROTATE_180)  # Image.FLIP_LEFT_RIGHT
-    # plt.subplot(2, 2, 1)
-    # plt.imshow(temp)
-    # plt.subplot(2, 2, 2)
-    # plt.imshow(im2)
+    # # temp = im.transpose(Image.ROTATE_180)  # Image.FLIP_LEFT_RIGHT
+    # plt.subplot(1, 2, 1)
+    # plt.title(text)
+    # plt.imshow(im.transpose(Image.FLIP_LEFT_RIGHT).rotate(180))
+    # plt.xticks([])
+    # plt.yticks([])
+    # plt.subplot(1, 2, 2)
+    # plt.imshow(im2.transpose(Image.FLIP_LEFT_RIGHT).rotate(180))
+    # plt.xticks([])
+    # plt.yticks([])
     # plt.show()
     # print sys._getframe()
 
