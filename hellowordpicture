@@ -50,12 +50,14 @@ class Imagetestlib(object):
 
     def get_available_file_extension(self):
         '''
-        返回有效的图像扩展名列表
+        获取有效的图像扩展名
+        返回值：
+            有效的图像扩展名列表
         '''
 
         return self.file_extension
 
-    def assess_image_luminance(self, filepath):
+    def estimate_image_luminance(self, filepath):
         '''
         评估图片亮度
         参数:
@@ -71,7 +73,7 @@ class Imagetestlib(object):
         luminance = float(v.sum()) / (hsv.shape[0] * hsv.shape[1])
         return round(luminance, 2)
 
-    def assess_image_saturation(self, filepath):
+    def estimate_image_saturation(self, filepath):
         '''
         评估图片饱和度
         参数:
@@ -87,7 +89,7 @@ class Imagetestlib(object):
         saturation = float(s.sum()) / (hsv.shape[0] * hsv.shape[1])
         return round(saturation, 2)
 
-    # def assess_image_hue(self, filepath):
+    # def estimate_image_hue(self, filepath):
     #     '''
     #     评估图片色度
     #     参数:
@@ -103,7 +105,7 @@ class Imagetestlib(object):
     #     hue = float(h.sum()) / (hsv.shape[0] * hsv.shape[1])
     #     return round(hue, 2)
 
-    def assess_image_gray(self, filepath):
+    def estimate_image_gray(self, filepath):
         '''
         评估图片灰度
         参数:
@@ -120,13 +122,13 @@ class Imagetestlib(object):
         gray_value = float(gray.sum()) / (gray.shape[0] * gray.shape[1])
         return round(gray_value, 2)
 
-    def assess_image_contrast(self, filepath):
+    def estimate_image_contrast(self, filepath):
         '''
         评估图片对比度
         参数:
             filepath:图片路径
         返回值:
-            返回图像对比度评估数值，数值越大，对比度越高；
+            返回图像对比度评估数值，数值越大，对比度越高。
         作者：
             lianjiaxin
         '''
@@ -162,7 +164,7 @@ class Imagetestlib(object):
         contrast = np.sqrt(std) / math.sqrt(math.sqrt(alpha4))
         return int(contrast)
 
-    def assess_image_sharpness(self, filepath):
+    def estimate_image_sharpness(self, filepath):
         '''
         评估图片锐度
         参数:
@@ -186,7 +188,7 @@ class Imagetestlib(object):
 
 
         return std
-        # assess_image_sharpness(self, filepath, minVal=50, maxVal=150, aperture_size=3):
+        # estimate_image_sharpness(self, filepath, minVal=50, maxVal=150, aperture_size=3):
         # edges = cv2.Canny(img, int(minVal), int(maxVal), int(aperture_size))
         # edges_count = edges.sum() / 255  # canny算法处理后，黑色为0,边缘点即白色为255
         # return edges_count
@@ -232,7 +234,7 @@ class Imagetestlib(object):
 
     def detect_image_blur(self, filepath, threshold=100):
         '''
-        检查图像是否模糊（虚焦）
+        检测图像是否模糊（虚焦）
         PS：【景深过深的场景判定为会判断为模糊吗？待确认；若判断有误，那么将图像拆分成M*N块进行分析，是否可以解决？待验证】
         参数：
             filepath:图片路径
@@ -245,7 +247,7 @@ class Imagetestlib(object):
         self._check_file(filepath)
         img = cv2.imread(filepath)
         variance = cv2.Laplacian(img, cv2.CV_64F).var()
-        # print variance
+        print variance
         return True if variance >= float(threshold) else False
 
     # **********************图像哈希算法计算两张图片的相似性****************************
@@ -369,7 +371,7 @@ class Imagetestlib(object):
 
     def detect_image_corridor(self, srcfile, dstfile, similarity=80):
         '''
-        检测图像走廊模式开启后的效果，将源图像srcfile进行走廊模式处理，再与目的图像dstfile进行相似性比较；
+        检测图像走廊模式开启后的效果，将源图像srcfile进行走廊模式处理，再与目的图像dstfile进行相似性比较。
         若相似度大于similarity，则判定走廊模式生效；否则走廊模式不生效
         参数：
             srcfile:未开启走廊模式的图片路径
@@ -394,7 +396,7 @@ class Imagetestlib(object):
 
     def detect_image_mirror(self, srcfile, dstfile, mirror='left-right', similarity=80):
         '''
-        检测图像镜像模式开启后的效果，将源图像srcfile进行镜像处理，再与目的图像dstfile进行相似性比较；
+        检测图像镜像模式开启后的效果，将源图像srcfile进行镜像处理，再与目的图像dstfile进行相似性比较。
         若相似度大于similarity，则判定走廊模式生效；否则走廊模式不生效
         参数：
             srcfile:未开启镜像模式的图片路径
@@ -505,7 +507,7 @@ class Imagetestlib(object):
 
     def detect_image_color_cast(self, filepath):
         '''
-        检测图像色偏。（仅适用于彩色图片）
+        检测图像色偏（仅适用于彩色图片）
         参数：
             filepath:图片路径
         返回值：
@@ -590,24 +592,24 @@ class Imagetestlib(object):
 
 if __name__ == "__main__":
     # # print img_mode_dict
-    testfile = "I:\\test_error\\9.jpg"  # black.png
+    testfile = "I:\\test_error\\11.jpg"  # black.png
     testfile2 = "I:\\clear\\road0.png"  # black.png
     img_analyze = Imagetestlib()
     # print img_analyze.get_available_file_extension(testfile)
-    # print 'v=', img_analyze.assess_image_luminance(testfile)
-    # print 's', img_analyze.assess_image_saturation(testfile)
-    # print 'h', img_analyze.assess_image_hue(testfile)
+    # print 'v=', img_analyze.estimate_image_luminance(testfile)
+    # print 's', img_analyze.estimate_image_saturation(testfile)
+    # print 'h', img_analyze.estimate_image_hue(testfile)
     # print img_analyze.is_image_colorful(testfile, 15)
-    # print img_analyze.assess_image_sharpness(testfile)
-    # print img_analyze.detect_image_blur(testfile, 100)
+    # print img_analyze.estimate_image_sharpness(testfile)
+    print img_analyze.detect_image_blur(testfile, 100)
     # Imghash_DiffNum = img_analyze.calculate_similar_images_by_imghash(testfile, testfile2)
     # Hist_similar = img_analyze.calculate_similar_images_by_histogram(testfile, testfile2)
     # Ssim_similar = img_analyze.calculate_similar_images_by_ssim(testfile, testfile2)
-    # print img_analyze.assess_image_gray(testfile)
-    # print img_analyze.assess_image_contrast(testfile)
+    # print img_analyze.estimate_image_gray(testfile)
+    # print img_analyze.estimate_image_contrast(testfile)
     # print img_analyze.detect_image_corridor(testfile, testfile2)
     # print img_analyze.detect_image_mirror(testfile, testfile2, 'center', 80)
-    # print img_analyze.slice_image(testfile)
+    print img_analyze.slice_image(testfile, None, 2, 2)
     noise_estimation = img_analyze.estimate_noise(testfile)
     color_cast = img_analyze.detect_image_color_cast(testfile)
     lum_estimation = img_analyze.detect_image_luminance(testfile)
