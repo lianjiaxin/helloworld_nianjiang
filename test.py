@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+
+
 打造本地docker练手环境
 1）	本地装虚拟机（推荐用virtualbox），注意要配置双网卡，一块配NAT网络，一块配桥接网络（要两块网卡是因为公司坑爹的网络管控）。
  
